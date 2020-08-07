@@ -3,7 +3,7 @@
 
 # ## Image Retrieval 실습
 
-# In[ ]:
+# In[1]:
 
 
 # Import libraries
@@ -15,6 +15,7 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from skimage.transform import resize
+from skimage.feature import hog
 from PIL import Image
 
 import torch
@@ -33,7 +34,7 @@ os.environ['CUDA_VISIBLE_DEVICES']='1'
 # 
 # ## Feature Extractor (Color)
 
-# In[ ]:
+# In[3]:
 
 
 #  extract 3D HSV color histogram from images
@@ -79,7 +80,7 @@ class Color_Extractor:
         hist_ellipse = self.histogram(image, ellipse_mask)
         features.extend(hist_ellipse)
 
-        return ???
+        return features
     
     # Calculate the histogram of the masked region of the image
     def histogram(self,image, mask):
@@ -92,7 +93,7 @@ class Color_Extractor:
         return hist
 
 
-# In[ ]:
+# In[4]:
 
 
 def extract_color_features(path):
@@ -109,16 +110,16 @@ def extract_color_features(path):
         # Read in each one by one
         img_path = os.path.join(path, img_name)
         image = mpimg.imread(img_path) # Read the images
-        image = ???(image, (224, 224), mode='constant') # Resize the images
+        image = resize(image, (224, 224), mode='constant') # Resize the images
         image = (image * 255).astype(np.uint8)
         feature_image = np.copy(image)
         
         feature = np.array(color_extractor.describe(feature_image))
-        feature = feature / LA.norm(???) # Feature Normalization
+        feature = feature / LA.norm(feature) # Feature Normalization
         features.append(feature)
         image_all.append(img_name)
     
-    time_elapsed = ???
+    time_elapsed = time.time() - start_time
     
     print('Feature extraction complete in {:.02f}s'.format(time_elapsed % 60))
     
@@ -126,7 +127,7 @@ def extract_color_features(path):
     return np.array(features), image_all
 
 
-# In[ ]:
+# In[5]:
 
 
 def test_color_features():
@@ -139,8 +140,8 @@ def test_color_features():
     feat_single, image = extract_color_features(test)
     
     # Calculate the scores
-    scores  = ???(feat_single, feats.T)  # 스코어 구하기
-    sort_ind = ???(scores)[0][::-1]      # 스코어 정렬하기
+    scores  = np.dot(feat_single, feats.T)
+    sort_ind = np.argsort(scores)[0][::-1] # sort the scores
     scores = scores[0, sort_ind]
 
     # Show the results
@@ -161,7 +162,7 @@ def test_color_features():
     plt.show()
 
 
-# In[ ]:
+# In[6]:
 
 
 test_color_features()
@@ -169,7 +170,7 @@ test_color_features()
 
 # ## Feature Extractor (VGG19)
 
-# In[ ]:
+# In[7]:
 
 
 class VGG19(nn.Module):
@@ -189,7 +190,7 @@ vgg19 = VGG19().cuda()
 
 # ## Feature Extractor (ResNet)
 
-# In[ ]:
+# In[8]:
 
 
 # Create the network to extract the features
@@ -208,11 +209,14 @@ class ResNet(nn.Module):
         self.layer4 = resnet.layer4
 
     def forward(self, x):
-        get_ipython().run_line_magic('pinfo2', '')
+        out = self.conv1(x)
         out = self.bn1(out)
         out = F.relu(out)
         out = self.maxpool(out)
-        get_ipython().run_line_magic('pinfo2', '')
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
         out = F.avg_pool2d(out, kernel_size=7, stride=7)
 
         return out
@@ -221,7 +225,7 @@ class ResNet(nn.Module):
 resnet = ResNet().cuda()
 
 
-# In[ ]:
+# In[10]:
 
 
 # Extract ConvNet Features (VGG19, ResNet)
@@ -263,7 +267,7 @@ def extract_deep_features(path, feature_extractor, feature_size):
     return feature_all, image_all
 
 
-# In[ ]:
+# In[11]:
 
 
 def test_deep_feature(feature_extractor, feature_size):
@@ -300,14 +304,14 @@ def test_deep_feature(feature_extractor, feature_size):
     plt.show()
 
 
-# In[ ]:
+# In[12]:
 
 
 # VGG19 Image Retrieval Results
 test_deep_feature(vgg19, feature_size=4096)
 
 
-# In[ ]:
+# In[13]:
 
 
 # ResNet50 Image Retrieval Results
